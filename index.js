@@ -5,6 +5,7 @@ const yaml = require('yaml');
 const fs = require('fs');
 const crypto = require('crypto');
 
+const DEPLOY_INTENT_SEMVER = "0.0.1";
 const MAX_WAIT_MINUTES = 360;  // 6 hours
 const WAIT_DEFAULT_DELAY_SEC = 15;
 
@@ -221,6 +222,7 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   fs.writeFileSync('deployment.json', JSON.stringify({
     platform: "AWS:CodeDeploy",
     deploymentId: createDeployResponse.deploymentId,
+    version: DEPLOY_INTENT_SEMVER
   }));
   core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
 
@@ -291,6 +293,7 @@ async function run() {
     fs.writeFileSync('deployment.json', JSON.stringify({
       platform: "AWS:ECS",
       deploymentId: taskDefArn,
+      version: DEPLOY_INTENT_SEMVER
     }));
 
     // Update the service with the new task definition

@@ -4,6 +4,7 @@ const aws = require('aws-sdk');
 const yaml = require('yaml');
 const fs = require('fs');
 const crypto = require('crypto');
+const process = require('process');
 
 const DEPLOY_INTENT_SEMVER = "0.0.1";
 const MAX_WAIT_MINUTES = 360;  // 6 hours
@@ -295,6 +296,7 @@ async function run() {
       deploymentId: taskDefArn,
       version: DEPLOY_INTENT_SEMVER
     }));
+    console.info("Wrote file deployment.json! Current working directory: ", process.cwd());
 
     // Update the service with the new task definition
     if (service) {

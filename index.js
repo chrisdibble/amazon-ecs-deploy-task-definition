@@ -5,6 +5,7 @@ const yaml = require('yaml');
 const fs = require('fs');
 const crypto = require('crypto');
 const process = require('process');
+const tmp = require('tmp');
 
 const DEPLOY_INTENT_SEMVER = "0.0.1";
 const MAX_WAIT_MINUTES = 360;  // 6 hours
@@ -291,7 +292,14 @@ async function run() {
     }
     const taskDefArn = registerResponse.taskDefinition.taskDefinitionArn;
     core.setOutput('task-definition-arn', taskDefArn);
-    fs.writeFileSync('deployment.json', JSON.stringify({
+    const deployIntentFile = tmp.fileSync({
+      tmpdir: process.env.RUNNER_TEMP,
+      prefix: 'deployment',
+      postfix: '.json',
+      keep: true,
+      discardDescriptor: true
+    });
+    fs.writeFileSync(deployIntentFile.name, JSON.stringify({
       platform: "AWS:ECS",
       deploymentId: taskDefArn,
       version: DEPLOY_INTENT_SEMVER

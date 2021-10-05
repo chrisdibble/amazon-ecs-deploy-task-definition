@@ -296,7 +296,7 @@ async function run() {
       deploymentId: taskDefArn,
       version: DEPLOY_INTENT_SEMVER
     }));
-    console.info("Wrote file deployment.json! Current working directory: ", process.cwd());
+    core.info("Wrote file deployment.json! Current working directory: ", process.cwd());
 
     // Update the service with the new task definition
     if (service) {

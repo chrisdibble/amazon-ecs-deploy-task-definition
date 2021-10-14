@@ -31,6 +31,13 @@ jest.mock('aws-sdk', () => {
         }))
     };
 });
+jest.mock('tmp', () => {
+    return {
+        fileSync: jest.fn(() => ({
+            name: "test"
+        }))
+    }
+});
 
 const EXPECTED_DEFAULT_WAIT_TIME = 30;
 const EXPECTED_CODE_DEPLOY_DEPLOYMENT_READY_WAIT_TIME = 60;

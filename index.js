@@ -221,9 +221,17 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   }
   const createDeployResponse = await codedeploy.createDeployment(deploymentParams).promise();
   core.setOutput('codedeploy-deployment-id', createDeployResponse.deploymentId);
-  fs.writeFileSync('deployment.json', JSON.stringify({
+  const deployIntentFile = tmp.fileSync({
+    tmpdir: process.env.RUNNER_TEMP,
+    prefix: 'deployment',
+    postfix: '.json',
+    keep: true,
+    discardDescriptor: true
+  });
+  fs.writeFileSync(deployIntentFile.name, JSON.stringify({
     platform: "AWS:CodeDeploy",
     deploymentId: createDeployResponse.deploymentId,
+    region: process.env.AWS_REGION,
     version: DEPLOY_INTENT_SEMVER
   }));
   core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
@@ -302,6 +310,7 @@ async function run() {
     fs.writeFileSync(deployIntentFile.name, JSON.stringify({
       platform: "AWS:ECS",
       deploymentId: taskDefArn,
+      region: process.env.AWS_REGION,
       version: DEPLOY_INTENT_SEMVER
     }));
     core.info("Wrote file deployment.json! Current working directory: ", process.cwd());

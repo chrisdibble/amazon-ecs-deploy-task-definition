@@ -5,9 +5,7 @@ const yaml = require('yaml');
 const fs = require('fs');
 const crypto = require('crypto');
 const process = require('process');
-const tmp = require('tmp');
 
-const DEPLOY_INTENT_SEMVER = "0.0.1";
 const MAX_WAIT_MINUTES = 360;  // 6 hours
 const WAIT_DEFAULT_DELAY_SEC = 15;
 
@@ -221,19 +219,6 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   }
   const createDeployResponse = await codedeploy.createDeployment(deploymentParams).promise();
   core.setOutput('codedeploy-deployment-id', createDeployResponse.deploymentId);
-  const deployIntentFile = tmp.fileSync({
-    tmpdir: process.env.RUNNER_TEMP,
-    prefix: 'deployment',
-    postfix: '.json',
-    keep: true,
-    discardDescriptor: true
-  });
-  fs.writeFileSync(deployIntentFile.name, JSON.stringify({
-    platform: "AWS:CodeDeploy",
-    deploymentId: createDeployResponse.deploymentId,
-    region: process.env.AWS_REGION,
-    version: DEPLOY_INTENT_SEMVER
-  }));
   core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
 
   // Wait for deployment to complete
@@ -282,6 +267,11 @@ async function run() {
     const forceNewDeployInput = core.getInput('force-new-deployment', { required: false }) || 'false';
     const forceNewDeployment = forceNewDeployInput.toLowerCase() === 'true';
 
+    // Common ouputs
+    core.setOutput('region', process.env.AWS_REGION);
+    core.setOutput('service', service);
+    core.setOutput('cluster', cluster);
+
     // Register the task definition
     core.debug('Registering the task definition');
     const taskDefPath = path.isAbsolute(taskDefinitionFile) ?
@@ -300,19 +290,6 @@ async function run() {
     }
     const taskDefArn = registerResponse.taskDefinition.taskDefinitionArn;
     core.setOutput('task-definition-arn', taskDefArn);
-    const deployIntentFile = tmp.fileSync({
-      tmpdir: process.env.RUNNER_TEMP,
-      prefix: 'deployment',
-      postfix: '.json',
-      keep: true,
-      discardDescriptor: true
-    });
-    fs.writeFileSync(deployIntentFile.name, JSON.stringify({
-      platform: "AWS:ECS",
-      deploymentId: taskDefArn,
-      region: process.env.AWS_REGION,
-      version: DEPLOY_INTENT_SEMVER
-    }));
     core.info("Wrote file deployment.json! Current working directory: ", process.cwd());
 
     // Update the service with the new task definition
@@ -337,9 +314,11 @@ async function run() {
 
       if (!serviceResponse.deploymentController) {
         // Service uses the 'ECS' deployment controller, so we can call UpdateService
+        core.setOutput('deployment-platform', 'AWS:ECS');
         await updateEcsService(ecs, clusterName, service, taskDefArn, waitForService, waitForMinutes, forceNewDeployment);
       } else if (serviceResponse.deploymentController.type == 'CODE_DEPLOY') {
         // Service uses CodeDeploy, so we should start a CodeDeploy deployment
+        core.setOutput('deployment-platform', 'AWS:CodeDeploy');
         await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService, waitForMinutes);
       } else {
         throw new Error(`Unsupported deployment controller: ${serviceResponse.deploymentController.type}`);

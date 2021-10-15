@@ -31,13 +31,6 @@ jest.mock('aws-sdk', () => {
         }))
     };
 });
-jest.mock('tmp', () => {
-    return {
-        fileSync: jest.fn(() => ({
-            name: "test"
-        }))
-    }
-});
 
 const EXPECTED_DEFAULT_WAIT_TIME = 30;
 const EXPECTED_CODE_DEPLOY_DEPLOYMENT_READY_WAIT_TIME = 60;
@@ -54,7 +47,7 @@ describe('Deploy to ECS', () => {
             .mockReturnValueOnce('service-456')         // service
             .mockReturnValueOnce('cluster-789');        // cluster
 
-        process.env = Object.assign(process.env, { GITHUB_WORKSPACE: __dirname });
+        process.env = Object.assign(process.env, { GITHUB_WORKSPACE: __dirname, AWS_REGION: 'fake-region' });
 
         fs.readFileSync.mockImplementation((pathInput, encoding) => {
             if (encoding != 'utf8') {
@@ -153,11 +146,15 @@ describe('Deploy to ECS', () => {
         });
     });
 
-     test('registers the task definition contents and updates the service', async () => {
+    test('registers the task definition contents and updates the service', async () => {
         await run();
         expect(core.setFailed).toHaveBeenCalledTimes(0);
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -442,7 +439,12 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:CodeDeploy');
+        expect(core.setOutput).toHaveBeenNthCalledWith(6, 'codedeploy-deployment-id', 'deployment-1');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -520,7 +522,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:CodeDeploy');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -596,7 +602,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:CodeDeploy');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -723,7 +733,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:CodeDeploy');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -793,7 +807,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:CodeDeploy');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -861,7 +879,10 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family-absolute-path'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', undefined);
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
     });
 
    test('waits for the service to be stable', async () => {
@@ -876,7 +897,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -910,7 +935,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -944,7 +973,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -979,7 +1012,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'cluster-789',
             services: ['service-456']
@@ -1002,7 +1039,11 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(5, 'deployment-platform', 'AWS:ECS');
         expect(mockEcsDescribeServices).toHaveBeenNthCalledWith(1, {
             cluster: 'default',
             services: ['service-456']
@@ -1024,7 +1065,10 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'task-definition-arn', 'task:def:arn');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', undefined);
+        expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
+        expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
         expect(mockEcsDescribeServices).toHaveBeenCalledTimes(0);
         expect(mockEcsUpdateService).toHaveBeenCalledTimes(0);
     });

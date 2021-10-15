@@ -35,10 +35,19 @@ inputs:
     description: 'Whether to force a new deployment of the service. Valid value is "true". Will default to not force a new deployment.'
     required: false
 outputs:
+  deployment-platform:
+    description: 'The platform being deployed to from this action (either AWS:ECS for rolling deployments or AWS:CodeDeploy for blue/green deployments)'
   task-definition-arn:
     description: 'The ARN of the registered ECS task definition'
   codedeploy-deployment-id:
     description: 'The deployment ID of the CodeDeploy deployment (if the ECS service uses the CODE_DEPLOY deployment controller'
+  region:
+    description: 'The AWS region (example, us-west-2) where the deployment is being executed'
+  cluster:
+    description: "The name of the ECS service's cluster"
+  service: 
+    description: 'The name of the ECS service to deployed to'
+
 runs:
   using: 'node12'
   main: 'dist/index.js'

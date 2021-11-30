@@ -13,12 +13,6 @@ inputs:
   cluster:
     description: "The name of the ECS service's cluster.  Will default to the 'default' cluster"
     required: false
-  wait-for-service-stability:
-    description: 'Whether to wait for the ECS service to reach stable state after deploying the new task definition. Valid value is "true". Will default to not waiting.'
-    required: false
-  wait-for-minutes:
-    description: 'How long to wait for the ECS service to reach stable state, in minutes (default: 30 minutes, max: 6 hours). For CodeDeploy deployments, any wait time configured in the CodeDeploy deployment group will be added to this value.'
-    required: false
   codedeploy-appspec:
     description: "The path to the AWS CodeDeploy AppSpec file, if the ECS service uses the CODE_DEPLOY deployment controller. Will default to 'appspec.yaml'."
     required: false
@@ -47,6 +41,8 @@ outputs:
     description: "The name of the ECS service's cluster"
   service: 
     description: 'The name of the ECS service to deployed to'
+  deployment-url:
+    description: 'The URL to use for deployment progress tracking and debugging'
 
 runs:
   using: 'node12'

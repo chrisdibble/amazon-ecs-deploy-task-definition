@@ -6,9 +6,6 @@ const fs = require('fs');
 const crypto = require('crypto');
 const process = require('process');
 
-const MAX_WAIT_MINUTES = 360;  // 6 hours
-const WAIT_DEFAULT_DELAY_SEC = 15;
-
 // Attributes that are returned by DescribeTaskDefinition, but are not valid RegisterTaskDefinition inputs
 const IGNORED_TASK_DEFINITION_ATTRIBUTES = [
   'compatibilities',
@@ -22,7 +19,7 @@ const IGNORED_TASK_DEFINITION_ATTRIBUTES = [
 ];
 
 // Deploy to a service that uses the 'ECS' deployment controller
-async function updateEcsService(ecs, clusterName, service, taskDefArn, waitForService, waitForMinutes, forceNewDeployment) {
+async function updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment) {
   core.debug('Updating the service');
   await ecs.updateService({
     cluster: clusterName,
@@ -30,23 +27,8 @@ async function updateEcsService(ecs, clusterName, service, taskDefArn, waitForSe
     taskDefinition: taskDefArn,
     forceNewDeployment: forceNewDeployment
   }).promise();
+  core.setOutput('deployment-url', `https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
   core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
-
-  // Wait for service stability
-  if (waitForService && waitForService.toLowerCase() === 'true') {
-    core.debug(`Waiting for the service to become stable. Will wait for ${waitForMinutes} minutes`);
-    const maxAttempts = (waitForMinutes * 60) / WAIT_DEFAULT_DELAY_SEC;
-    await ecs.waitFor('servicesStable', {
-      services: [service],
-      cluster: clusterName,
-      $waiter: {
-        delay: WAIT_DEFAULT_DELAY_SEC,
-        maxAttempts: maxAttempts
-      }
-    }).promise();
-  } else {
-    core.debug('Not waiting for the service to become stable');
-  }
 }
 
 // Find value in a CodeDeploy AppSpec file with a case-insensitive key
@@ -161,7 +143,7 @@ function validateProxyConfigurations(taskDef){
 }
 
 // Deploy to a service that uses the 'CODE_DEPLOY' deployment controller
-async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService, waitForMinutes) {
+async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn) {
   core.debug('Updating AppSpec file with new task definition ARN');
 
   let codeDeployAppSpecFile = core.getInput('codedeploy-appspec', { required : false });
@@ -174,12 +156,6 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   codeDeployGroup = codeDeployGroup ? codeDeployGroup : `DgpECS-${clusterName}-${service}`;
 
   let codeDeployDescription = core.getInput('codedeploy-deployment-description', { required: false });
-
-  let deploymentGroupDetails = await codedeploy.getDeploymentGroup({
-    applicationName: codeDeployApp,
-    deploymentGroupName: codeDeployGroup
-  }).promise();
-  deploymentGroupDetails = deploymentGroupDetails.deploymentGroupInfo;
 
   // Insert the task def ARN into the appspec file
   const appSpecPath = path.isAbsolute(codeDeployAppSpecFile) ?
@@ -219,30 +195,8 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   }
   const createDeployResponse = await codedeploy.createDeployment(deploymentParams).promise();
   core.setOutput('codedeploy-deployment-id', createDeployResponse.deploymentId);
+  core.setOutput('deployment-url', `https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
   core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
-
-  // Wait for deployment to complete
-  if (waitForService && waitForService.toLowerCase() === 'true') {
-    // Determine wait time
-    const deployReadyWaitMin = deploymentGroupDetails.blueGreenDeploymentConfiguration.deploymentReadyOption.waitTimeInMinutes;
-    const terminationWaitMin = deploymentGroupDetails.blueGreenDeploymentConfiguration.terminateBlueInstancesOnDeploymentSuccess.terminationWaitTimeInMinutes;
-    let totalWaitMin = deployReadyWaitMin + terminationWaitMin + waitForMinutes;
-    if (totalWaitMin > MAX_WAIT_MINUTES) {
-      totalWaitMin = MAX_WAIT_MINUTES;
-    }
-    const maxAttempts = (totalWaitMin * 60) / WAIT_DEFAULT_DELAY_SEC;
-
-    core.debug(`Waiting for the deployment to complete. Will wait for ${totalWaitMin} minutes`);
-    await codedeploy.waitFor('deploymentSuccessful', {
-      deploymentId: createDeployResponse.deploymentId,
-      $waiter: {
-        delay: WAIT_DEFAULT_DELAY_SEC,
-        maxAttempts: maxAttempts
-      }
-    }).promise();
-  } else {
-    core.debug('Not waiting for the deployment to complete');
-  }
 }
 
 async function run() {
@@ -258,11 +212,6 @@ async function run() {
     const taskDefinitionFile = core.getInput('task-definition', { required: true });
     const service = core.getInput('service', { required: false });
     const cluster = core.getInput('cluster', { required: false });
-    const waitForService = core.getInput('wait-for-service-stability', { required: false });
-    let waitForMinutes = parseInt(core.getInput('wait-for-minutes', { required: false })) || 30;
-    if (waitForMinutes > MAX_WAIT_MINUTES) {
-      waitForMinutes = MAX_WAIT_MINUTES;
-    }
 
     const forceNewDeployInput = core.getInput('force-new-deployment', { required: false }) || 'false';
     const forceNewDeployment = forceNewDeployInput.toLowerCase() === 'true';
@@ -290,7 +239,6 @@ async function run() {
     }
     const taskDefArn = registerResponse.taskDefinition.taskDefinitionArn;
     core.setOutput('task-definition-arn', taskDefArn);
-    core.info("Wrote file deployment.json! Current working directory: ", process.cwd());
 
     // Update the service with the new task definition
     if (service) {
@@ -315,11 +263,11 @@ async function run() {
       if (!serviceResponse.deploymentController) {
         // Service uses the 'ECS' deployment controller, so we can call UpdateService
         core.setOutput('deployment-platform', 'AWS:ECS');
-        await updateEcsService(ecs, clusterName, service, taskDefArn, waitForService, waitForMinutes, forceNewDeployment);
+        await updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment);
       } else if (serviceResponse.deploymentController.type == 'CODE_DEPLOY') {
         // Service uses CodeDeploy, so we should start a CodeDeploy deployment
         core.setOutput('deployment-platform', 'AWS:CodeDeploy');
-        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, waitForService, waitForMinutes);
+        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn);
       } else {
         throw new Error(`Unsupported deployment controller: ${serviceResponse.deploymentController.type}`);
       }

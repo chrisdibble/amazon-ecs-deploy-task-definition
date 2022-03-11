@@ -7,6 +7,9 @@ inputs:
   task-definition:
     description: 'The path to the ECS task definition file to register'
     required: true
+  region:
+    description: "The AWS region name"
+    required: true
   service:
     description: 'The name of the ECS service to deploy to. The action will only register the task definition if no service is given.'
     required: false

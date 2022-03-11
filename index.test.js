@@ -16,7 +16,7 @@ const mockCodeDeployWaiter = jest.fn();
 jest.mock('aws-sdk', () => {
     return {
         config: {
-            region: 'fake-region'
+            region: 'a-different-fake-region'
         },
         ECS: jest.fn(() => ({
             registerTaskDefinition: mockEcsRegisterTaskDef,
@@ -42,11 +42,12 @@ describe('Deploy to ECS', () => {
 
         core.getInput = jest
             .fn()
+            .mockReturnValueOnce('fake-region-1')        // region
             .mockReturnValueOnce('task-definition.json') // task-definition
-            .mockReturnValueOnce('service-456')         // service
-            .mockReturnValueOnce('cluster-789');        // cluster
+            .mockReturnValueOnce('service-456')          // service
+            .mockReturnValueOnce('cluster-789');         // cluster
 
-        process.env = Object.assign(process.env, { GITHUB_WORKSPACE: __dirname, AWS_REGION: 'fake-region' });
+        process.env = Object.assign(process.env, { GITHUB_WORKSPACE: __dirname });
 
         fs.readFileSync.mockImplementation((pathInput, encoding) => {
             if (encoding != 'utf8') {
@@ -149,7 +150,7 @@ describe('Deploy to ECS', () => {
         await run();
         expect(core.setFailed).toHaveBeenCalledTimes(0);
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -165,7 +166,7 @@ describe('Deploy to ECS', () => {
             forceNewDeployment: false
         });
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region#/clusters/cluster-789/services/service-456/events");
+        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=fake-region-1#/clusters/cluster-789/services/service-456/events");
     });
 
     test('cleans null keys out of the task definition contents', async () => {
@@ -413,6 +414,7 @@ describe('Deploy to ECS', () => {
     test('does not wait for a CodeDeploy deployment, parses JSON appspec file', async () => {
         core.getInput = jest
             .fn()
+            .mockReturnValueOnce('fake-region-1') // task-definition
             .mockReturnValueOnce('task-definition.json') // task-definition
             .mockReturnValueOnce('service-456')         // service
             .mockReturnValueOnce('cluster-789')         // cluster
@@ -492,7 +494,7 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -536,6 +538,7 @@ describe('Deploy to ECS', () => {
         core.getInput = jest
             .fn(input => {
                 return {
+                    'region': 'fake-region-1',
                     'task-definition': 'task-definition.json',
                     'service': 'service-456',
                     'cluster': 'cluster-789',
@@ -565,7 +568,7 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -604,11 +607,13 @@ describe('Deploy to ECS', () => {
         expect(mockEcsUpdateService).toHaveBeenCalledTimes(0);
         expect(mockEcsWaiter).toHaveBeenCalledTimes(0);
 
-        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region");
+        expect(core.info).toBeCalledWith("Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/deployment-1?region=fake-region-1");
     });
 
      test('registers the task definition contents at an absolute path', async () => {
-        core.getInput = jest.fn().mockReturnValueOnce('/hello/task-definition.json');
+        core.getInput = jest.fn()
+            .mockReturnValueOnce('fake-region-1') // region
+            .mockReturnValueOnce('/hello/task-definition.json') // task-definition
         fs.readFileSync.mockImplementation((pathInput, encoding) => {
             if (encoding != 'utf8') {
                 throw new Error(`Wrong encoding ${encoding}`);
@@ -625,7 +630,7 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family-absolute-path'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', undefined);
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -634,6 +639,7 @@ describe('Deploy to ECS', () => {
     test('force new deployment', async () => {
         core.getInput = jest
             .fn()
+            .mockReturnValueOnce('fake-region-1')  // region
             .mockReturnValueOnce('task-definition.json')  // task-definition
             .mockReturnValueOnce('service-456')          // service
             .mockReturnValueOnce('cluster-789')          // cluster
@@ -643,7 +649,7 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', 'cluster-789');
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -663,6 +669,7 @@ describe('Deploy to ECS', () => {
     test('defaults to the default cluster', async () => {
         core.getInput = jest
             .fn()
+            .mockReturnValueOnce('fake-region-1') // region
             .mockReturnValueOnce('task-definition.json') // task-definition
             .mockReturnValueOnce('service-456');         // service
 
@@ -670,7 +677,7 @@ describe('Deploy to ECS', () => {
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', 'service-456');
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');
@@ -690,13 +697,14 @@ describe('Deploy to ECS', () => {
     test('does not update service if none specified', async () => {
         core.getInput = jest
             .fn()
+            .mockReturnValueOnce('fake-region-1') // region
             .mockReturnValueOnce('task-definition.json'); // task-definition
 
         await run();
         expect(core.setFailed).toHaveBeenCalledTimes(0);
 
         expect(mockEcsRegisterTaskDef).toHaveBeenNthCalledWith(1, { family: 'task-def-family'});
-        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region');
+        expect(core.setOutput).toHaveBeenNthCalledWith(1, 'region', 'fake-region-1');
         expect(core.setOutput).toHaveBeenNthCalledWith(2, 'service', undefined);
         expect(core.setOutput).toHaveBeenNthCalledWith(3, 'cluster', undefined);
         expect(core.setOutput).toHaveBeenNthCalledWith(4, 'task-definition-arn', 'task:def:arn');

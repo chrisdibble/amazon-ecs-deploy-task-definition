@@ -19,7 +19,7 @@ const IGNORED_TASK_DEFINITION_ATTRIBUTES = [
 ];
 
 // Deploy to a service that uses the 'ECS' deployment controller
-async function updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment) {
+async function updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment, region) {
   core.debug('Updating the service');
   await ecs.updateService({
     cluster: clusterName,
@@ -27,8 +27,8 @@ async function updateEcsService(ecs, clusterName, service, taskDefArn, forceNewD
     taskDefinition: taskDefArn,
     forceNewDeployment: forceNewDeployment
   }).promise();
-  core.setOutput('deployment-url', `https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
-  core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
+  core.setOutput('deployment-url', `https://console.aws.amazon.com/ecs/home?region=${region}#/clusters/${clusterName}/services/${service}/events`);
+  core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${region}#/clusters/${clusterName}/services/${service}/events`);
 }
 
 // Find value in a CodeDeploy AppSpec file with a case-insensitive key
@@ -143,7 +143,7 @@ function validateProxyConfigurations(taskDef){
 }
 
 // Deploy to a service that uses the 'CODE_DEPLOY' deployment controller
-async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn) {
+async function createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, region) {
   core.debug('Updating AppSpec file with new task definition ARN');
 
   let codeDeployAppSpecFile = core.getInput('codedeploy-appspec', { required : false });
@@ -195,17 +195,21 @@ async function createCodeDeployDeployment(codedeploy, clusterName, service, task
   }
   const createDeployResponse = await codedeploy.createDeployment(deploymentParams).promise();
   core.setOutput('codedeploy-deployment-id', createDeployResponse.deploymentId);
-  core.setOutput('deployment-url', `https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
-  core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${aws.config.region}`);
+  core.setOutput('deployment-url', `https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${region}`);
+  core.info(`Deployment started. Watch this deployment's progress in the AWS CodeDeploy console: https://console.aws.amazon.com/codesuite/codedeploy/deployments/${createDeployResponse.deploymentId}?region=${region}`);
 }
 
 async function run() {
   try {
+    const region = core.getInput('region', { required: true })
+
     const ecs = new aws.ECS({
-      customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions'
+      customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions',
+      region
     });
     const codedeploy = new aws.CodeDeploy({
-      customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions'
+      customUserAgent: 'amazon-ecs-deploy-task-definition-for-github-actions',
+      region
     });
 
     // Get inputs
@@ -217,7 +221,7 @@ async function run() {
     const forceNewDeployment = forceNewDeployInput.toLowerCase() === 'true';
 
     // Common ouputs
-    core.setOutput('region', process.env.AWS_REGION);
+    core.setOutput('region', region);
     core.setOutput('service', service);
     core.setOutput('cluster', cluster);
 
@@ -263,11 +267,11 @@ async function run() {
       if (!serviceResponse.deploymentController) {
         // Service uses the 'ECS' deployment controller, so we can call UpdateService
         core.setOutput('deployment-platform', 'AWS:ECS');
-        await updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment);
+        await updateEcsService(ecs, clusterName, service, taskDefArn, forceNewDeployment, region);
       } else if (serviceResponse.deploymentController.type == 'CODE_DEPLOY') {
         // Service uses CodeDeploy, so we should start a CodeDeploy deployment
         core.setOutput('deployment-platform', 'AWS:CodeDeploy');
-        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn);
+        await createCodeDeployDeployment(codedeploy, clusterName, service, taskDefArn, region);
       } else {
         throw new Error(`Unsupported deployment controller: ${serviceResponse.deploymentController.type}`);
       }
